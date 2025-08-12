@@ -1,6 +1,6 @@
 <?php
 $page_title = 'Danh sách cuộc thi';
-include '../../includes/header.php';
+include __DIR__ . '/../../includes/header.php';
 
 // Get active contests (limit to 2 for featured contests)
 $contests = getContests('active', 2);
@@ -189,4 +189,4 @@ document.getElementById('loginModal').addEventListener('click', function(e) {
 });
 </script>
 
-<?php include '../../includes/footer.php'; ?>
+<?php include __DIR__ . '/../../includes/footer.php'; ?>

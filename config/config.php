@@ -9,11 +9,6 @@ require_once __DIR__ . '/env.php';
 // Ensure env is valid in production
 require_once __DIR__ . '/validate_env.php';
 
-// Session security settings (MUST be set before session_start())
-ini_set('session.cookie_httponly', 1);
-ini_set('session.cookie_secure', env('SESSION_SECURE_COOKIE', 0) ? 1 : 0); // Set to 1 for HTTPS
-ini_set('session.use_strict_mode', 1);
-
 // Application configuration
 define('APP_NAME', env('APP_NAME', 'Special Program 2025'));
 define('APP_VERSION', '1.0.0');
@@ -215,16 +210,6 @@ function checkRateLimit($key, $max_attempts = 5, $timeout = 300) {
     $_SESSION['rate_limit'][$key] = $attempts;
 
     return true;
-}
-
-// IP blocking
-function isIpBlocked($ip) {
-    global $pdo;
-
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM blocked_ips WHERE ip_address = ? AND expires_at > NOW()");
-    $stmt->execute([$ip]);
-
-    return $stmt->fetchColumn() > 0;
 }
 
 // ========================================

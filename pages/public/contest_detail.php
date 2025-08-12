@@ -1,6 +1,6 @@
 <?php
 $page_title = 'Chi tiết Cuộc thi';
-include '../includes/header.php';
+include '../../includes/header.php';
 
 $contest_id = intval($_GET['id'] ?? 0);
 if (!$contest_id) {
@@ -310,4 +310,4 @@ setInterval(function() {
 }, 30000);
 </script>
 
-<?php include '../includes/footer.php'; ?>
+<?php include '../../includes/footer.php'; ?>

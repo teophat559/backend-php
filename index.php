@@ -1,5 +1,8 @@
 <?php
+// Configure session before starting it
+require_once __DIR__ . '/config/session.php';
 session_start();
+
 // Validate environment before proceeding
 require_once __DIR__ . '/config/validate_env.php';
 require_once 'config/config.php';

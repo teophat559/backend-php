@@ -286,12 +286,15 @@ function getStatistics() {
     $stmt = $pdo->query("SELECT COUNT(*) FROM votes");
     $stats['total_votes'] = $stmt->fetchColumn();
 
-    // Today's votes
-    $stmt = $pdo->query("SELECT COUNT(*) FROM votes WHERE DATE(created_at) = CURDATE()");
+    // Today's votes (SQLite and MySQL compatible)
+    $todayDate = date('Y-m-d');
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM votes WHERE DATE(created_at) = ?");
+    $stmt->execute([$todayDate]);
     $stats['today_votes'] = $stmt->fetchColumn();
 
-    // Today's registrations
-    $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE DATE(created_at) = CURDATE() AND role = 'user'");
+    // Today's registrations (SQLite and MySQL compatible)
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE DATE(created_at) = ? AND role = 'user'");
+    $stmt->execute([$todayDate]);
     $stats['today_registrations'] = $stmt->fetchColumn();
 
     return $stats;
