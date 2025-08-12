@@ -1,0 +1,94 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      run_setup:
+        description: "Run server_setup.sh before deploy (first-time setup)"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up SSH key and known_hosts
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${VPS_PORT:-22}" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Optional - Upload and run server setup (first-time)
+        if: github.event_name == 'workflow_dispatch' && inputs.run_setup == 'true'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          DOMAIN: ${{ secrets.DOMAIN }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+        run: |
+          scp -P "${VPS_PORT:-22}" -i ~/.ssh/id_ed25519 deploy/server_setup.sh "$VPS_USER@$VPS_HOST:/opt/deploy/server_setup.sh"
+          ssh -p "${VPS_PORT:-22}" -i ~/.ssh/id_ed25519 "$VPS_USER@$VPS_HOST" "\
+            export DOMAIN='${DOMAIN}'; \
+            export DOCROOT='${VPS_PATH}'; \
+            export DB_HOST='localhost'; \
+            export DB_NAME='${DB_NAME}'; \
+            export DB_USER='${DB_USER}'; \
+            export DB_PASS='${DB_PASS}'; \
+            export APP_URL='https://${DOMAIN}'; \
+            bash /opt/deploy/server_setup.sh"
+
+      - name: Rsync project to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          rsync -az --delete \
+            --exclude-from '.deployignore' \
+            -e "ssh -i ~/.ssh/id_ed25519 -p ${VPS_PORT:-22}" \
+            ./ "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/"
+
+      - name: Remote post-deploy steps
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          ssh -p "${VPS_PORT:-22}" -i ~/.ssh/id_ed25519 "$VPS_USER@$VPS_HOST" << 'EOF'
+          set -e
+          cd "$VPS_PATH"
+          if command -v composer >/dev/null 2>&1; then
+            composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader || true
+          fi
+          mkdir -p uploads logs storage storage/sessions
+          chmod -R 775 uploads logs storage || true
+          if id -u www-data >/dev/null 2>&1; then chown -R www-data:www-data "$PWD"; fi
+          if id -u apache >/dev/null 2>&1; then chown -R apache:apache "$PWD"; fi
+          if command -v systemctl >/dev/null 2>&1; then
+            systemctl reload apache2 2>/dev/null || systemctl reload httpd 2>/dev/null || true
+            systemctl reload php-fpm 2>/dev/null || true
+          fi
+          echo "Deployment finished at $(date)"
+          EOF
