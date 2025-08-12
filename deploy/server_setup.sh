@@ -34,7 +34,7 @@ echo "[INFO] Detected OS: ${OS_ID}"
 if [[ ${OS_ID} == "ubuntu" || ${OS_ID} == "debian" ]]; then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -y
-  apt-get install -y apache2 curl unzip gnupg lsb-release ca-certificates software-properties-common
+  apt-get install -y apache2 curl unzip rsync gnupg lsb-release ca-certificates software-properties-common
 
   # PHP (Ubuntu 22.04 ships PHP 8.1 by default)
   apt-get install -y php php-cli php-common php-mysql php-curl php-xml php-gd php-zip php-mbstring libapache2-mod-php
@@ -51,7 +51,7 @@ if [[ ${OS_ID} == "ubuntu" || ${OS_ID} == "debian" ]]; then
 elif [[ ${OS_ID} == "centos" || ${OS_ID} == "rhel" || ${OS_ID} == "fedora" ]]; then
   yum -y install epel-release || true
   yum -y update
-  yum -y install httpd curl unzip policycoreutils-python-utils
+  yum -y install httpd curl unzip rsync policycoreutils-python-utils
   # PHP 8.x (use remi on EL7/8, on EL9 appstream may have 8.1)
   yum -y install php php-cli php-common php-mysqlnd php-curl php-xml php-gd php-zip php-mbstring
   yum -y install mariadb-server || yum -y install mysql-server
@@ -70,10 +70,11 @@ else
   exit 1
 fi
 
-# ===== Create docroot =====
-mkdir -p "${DOCROOT}"
+# ===== Create docroot and app dirs =====
+mkdir -p "${DOCROOT}" "${DOCROOT}/php-version" "${DOCROOT}/php-version/uploads"
 chown -R ${APACHE_USER}:${APACHE_USER} "${DOCROOT}"
 chmod -R 755 "${DOCROOT}"
+chmod -R 777 "${DOCROOT}/php-version/uploads" || true
 
 # ===== VirtualHost config =====
 VHOST_FILE="${APACHE_CONF_DIR}/${DOMAIN}.conf"
@@ -97,7 +98,7 @@ cat >"${VHOST_FILE}" <<EOF
         Header always set X-Frame-Options DENY
         Header always set X-XSS-Protection "1; mode=block"
         Header always set Referrer-Policy "strict-origin-when-cross-origin"
-        Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        Header always set Permissions-Policy "geolocation=(), microphone=(), camera()"
     </IfModule>
 
     <IfModule mod_deflate.c>
@@ -143,8 +144,8 @@ GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
 FLUSH PRIVILEGES;
 SQL
 
-# ===== .env provisioning (if project already synced) =====
-ENV_FILE="${DOCROOT}/.env"
+# ===== .env provisioning (app root is php-version) =====
+ENV_FILE="${DOCROOT}/php-version/.env"
 if [ ! -f "${ENV_FILE}" ]; then
   cat >"${ENV_FILE}" <<ENV
 APP_NAME=Special Program 2025
@@ -170,9 +171,9 @@ ENV
   chmod 600 "${ENV_FILE}"
 fi
 
-# ===== Import database schema if provided in docroot =====
-if [ -f "${DOCROOT}/setup-database.sql" ]; then
-  echo "[INFO] Importing database schema from setup-database.sql"
+# ===== Import database schema if provided in app folder =====
+if [ -f "${DOCROOT}/php-version/setup-database.sql" ]; then
+  echo "[INFO] Importing database schema from php-version/setup-database.sql"
   TMP_SCHEMA="/tmp/schema_${DB_NAME}.sql"
   # Remove DB/user creation and adjust DB/user names if present
   sed -E \
@@ -183,7 +184,7 @@ if [ -f "${DOCROOT}/setup-database.sql" ]; then
     -e '/^USE /Id' \
     -e "s/specialprogram2025/${DB_NAME}/g" \
     -e "s/`echo specialprogram`/${DB_USER}/g" \
-    "${DOCROOT}/setup-database.sql" > "${TMP_SCHEMA}"
+    "${DOCROOT}/php-version/setup-database.sql" > "${TMP_SCHEMA}"
   mysql -u"${DB_USER}" -p"${DB_PASS}" "${DB_NAME}" < "${TMP_SCHEMA}" || true
   rm -f "${TMP_SCHEMA}"
 fi
@@ -192,4 +193,4 @@ fi
 systemctl enable ${APACHE_SERVICE}
 systemctl restart ${APACHE_SERVICE}
 
-echo "[OK] Server setup completed for ${DOMAIN} with docroot ${DOCROOT}"
+echo "[OK] Server setup completed for ${DOMAIN} with docroot ${DOCROOT} and app at php-version/"
