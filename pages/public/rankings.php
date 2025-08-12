@@ -1,6 +1,6 @@
 <?php
 $page_title = 'Bảng xếp hạng';
-include '../../../includes/header.php';
+include '../../includes/header.php';
 
 // Get top 25 contestants
 $top_contestants = getTopContestants(25);
@@ -303,4 +303,4 @@ setInterval(function() {
 }, 30000);
 </script>
 
-<?php include '../../../includes/footer.php'; ?>
+<?php include '../../includes/footer.php'; ?>

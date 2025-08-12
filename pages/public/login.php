@@ -21,7 +21,7 @@ if (!in_array($platform, $allowed_platforms)) {
 }
 
 $page_title = 'Đăng nhập';
-include '../../../includes/header.php';
+include '../../includes/header.php';
 ?>
 
 <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -284,4 +284,4 @@ document.querySelector('form').addEventListener('submit', function(e) {
 document.getElementById('username').focus();
 </script>
 
-<?php include '../../../includes/footer.php'; ?>
+<?php include '../../includes/footer.php'; ?>

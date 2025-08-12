@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && checkCSRFToken()) {
 }
 
 $page_title = 'Đăng ký';
-include '../../../includes/header.php';
+include '../../includes/header.php';
 ?>
 
 <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -238,4 +238,4 @@ function updatePasswordStrengthIndicator(strength) {
 document.getElementById('username').focus();
 </script>
 
-<?php include '../../../includes/footer.php'; ?>
+<?php include '../../includes/footer.php'; ?>
