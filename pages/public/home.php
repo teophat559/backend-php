@@ -1,6 +1,6 @@
 <?php
 $page_title = 'Trang chủ';
-include $_SERVER['DOCUMENT_ROOT'] . '/includes/header.php';
+include __DIR__ . '/../../includes/header.php';
 
 // Get active contests
 $contests = getContests('active', 2); // Tối đa 2 cuộc thi nổi bật
@@ -213,4 +213,4 @@ $stats = getStatistics();
     </div>
 </div>
 
-<?php include $_SERVER['DOCUMENT_ROOT'] . '/includes/footer.php'; ?>
+<?php include __DIR__ . '/../../includes/footer.php'; ?>

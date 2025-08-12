@@ -2,8 +2,8 @@
 session_start();
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config/database.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config/config.php';
-require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/functions.php';
-require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/admin-security.php';
+require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/admin-security.php';
 
 // Redirect to dashboard if already verified
 if (isAdminKeyVerified()) {

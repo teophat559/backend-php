@@ -1,6 +1,6 @@
 <?php
 $page_title = '404 - Không tìm thấy trang';
-include $_SERVER['DOCUMENT_ROOT'] . '/includes/header.php';
+include __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -30,4 +30,4 @@ include $_SERVER['DOCUMENT_ROOT'] . '/includes/header.php';
     </div>
 </div>
 
-<?php include $_SERVER['DOCUMENT_ROOT'] . '/includes/footer.php'; ?>
+<?php include __DIR__ . '/../includes/footer.php'; ?>

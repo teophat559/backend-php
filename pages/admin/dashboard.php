@@ -2,14 +2,14 @@
 session_start();
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config/database.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config/config.php';
-require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/functions.php';
-require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/admin-security.php';
+require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/admin-security.php';
 
 // Require only admin key verification
 requireAdminKey();
 
 $page_title = 'Dashboard';
-include '../../includes/header.php';
+include '../../../includes/header.php';
 
 // Get statistics
 $stats = getStatistics();
@@ -343,4 +343,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && checkCSRFToken()) {
 </div>
 <?php endif; ?>
 
-<?php include '../../includes/footer.php'; ?>
+<?php include '../../../includes/footer.php'; ?>

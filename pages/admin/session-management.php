@@ -2,15 +2,15 @@
 session_start();
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config/database.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config/config.php';
-require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/functions.php';
-require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/admin-security.php';
+require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/admin-security.php';
 
 // Require only admin key verification
 requireAdminKey();
-require_once '../../includes/session-management.php';
+require_once '../../../includes/session-management.php';
 
 $page_title = 'Quản lý Phiên Đăng nhập';
-include '../../includes/header.php';
+include '../../../includes/header.php';
 
 // Handle actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && checkCSRFToken()) {
@@ -590,4 +590,4 @@ document.getElementById('blockIPModal').addEventListener('click', function(e) {
 });
 </script>
 
-<?php include '../../includes/footer.php'; ?>
+<?php include '../../../includes/footer.php'; ?>

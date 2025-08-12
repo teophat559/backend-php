@@ -1,6 +1,6 @@
 <?php
 $page_title = 'Trang cá nhân';
-include '../includes/header.php';
+include '../../includes/header.php';
 
 $username = $_GET['username'] ?? '';
 if (!$username) {
@@ -180,4 +180,4 @@ $is_own_profile = $current_user && $current_user['id'] == $user['id'];
     <?php endif; ?>
 </div>
 
-<?php include '../includes/footer.php'; ?>
+<?php include '../../includes/footer.php'; ?>

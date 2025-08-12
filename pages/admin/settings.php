@@ -2,14 +2,14 @@
 session_start();
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config/database.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config/config.php';
-require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/functions.php';
-require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/admin-security.php';
+require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/admin-security.php';
 
 // Require only admin key verification
 requireAdminKey();
 
 $page_title = 'Cài đặt Hệ thống';
-include '../../includes/header.php';
+include '../../../includes/header.php';
 
 // Handle actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && checkCSRFToken()) {
@@ -299,4 +299,4 @@ function showTab(tabName) {
 }
 </script>
 
-<?php include '../../includes/footer.php'; ?>
+<?php include '../../../includes/footer.php'; ?>
