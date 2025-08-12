@@ -1,0 +1,9 @@
+# Ignore sensitive and environment files
+.env
+logs/*.log
+storage/sessions/*
+uploads/*
+!uploads/.gitkeep
+storage/*
+!storage/sessions/
+!storage/sessions/.gitkeep

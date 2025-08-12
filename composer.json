@@ -1,0 +1,68 @@
+{
+    "name": "specialprogram2025/voting-system",
+    "description": "Special Program 2025 Voting System - Pure PHP Implementation",
+    "type": "project",
+    "keywords": ["voting", "contest", "php", "special-program-2025"],
+    "homepage": "https://specialprogram2025.online",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Special Program 2025 Team",
+            "email": "admin@specialprogram2025.online"
+        }
+    ],
+    "require": {
+        "php": ">=8.1"
+    },
+    "suggest": {
+        "ext-pdo": "Required for database connectivity",
+        "ext-pdo_mysql": "Required for MySQL database support",
+        "ext-mbstring": "Required for multi-byte string handling",
+        "ext-curl": "Required for HTTP requests",
+        "ext-gd": "Required for image processing",
+        "ext-zip": "Required for file compression",
+        "ext-xml": "Required for XML processing",
+        "ext-json": "Required for JSON processing",
+        "ext-opcache": "Recommended for better performance",
+        "ext-bcmath": "Required for precise calculations"
+    },
+    "autoload": {
+        "files": [
+            "config/database.php",
+            "config/config.php",
+            "includes/functions.php",
+            "includes/auth.php"
+        ]
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "scripts": {
+        "post-install-cmd": [
+            "php -r \"echo 'Special Program 2025 Voting System installed successfully!\\n';\""
+        ],
+        "check-requirements": [
+            "php -m | grep -E '(pdo|pdo_mysql|mbstring|curl|gd|zip|xml|json)' || echo 'Missing required PHP extensions'"
+        ],
+        "setup-permissions": [
+            "chmod -R 755 .",
+            "chmod -R 777 uploads/",
+            "chmod -R 777 logs/",
+            "chmod -R 777 storage/"
+        ]
+    },
+    "extra": {
+        "project-info": {
+            "name": "Special Program 2025 Voting System",
+            "version": "1.0.0",
+            "framework": "Pure PHP",
+            "database": "MySQL 8.0+",
+            "webserver": "Apache 2.4+",
+            "php-version": "8.1+"
+        }
+    }
+}
