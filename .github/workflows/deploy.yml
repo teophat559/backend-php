@@ -19,73 +19,123 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
+    env:
+      DEFAULT_VPS_HOST: 31.97.48.96
+      DEFAULT_VPS_PORT: 22
+      DEFAULT_VPS_USER: root
+      DEFAULT_VPS_PATH: /home/specialprogram2025.online/public_html
+      DEFAULT_DOMAIN: specialprogram2025.online
+      DEFAULT_DB_NAME: spec_specialprogram2025
+      DEFAULT_DB_USER: spec_specialprogram
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up SSH key and known_hosts
+      - name: Set up SSH (key or password) and resolve config
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p "${VPS_PORT:-22}" -H "$VPS_HOST" >> ~/.ssh/known_hosts
-
-      - name: Optional - Upload and run server setup (first-time)
-        if: github.event_name == 'workflow_dispatch' && inputs.run_setup == 'true'
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
           DOMAIN: ${{ secrets.DOMAIN }}
           VPS_PATH: ${{ secrets.VPS_PATH }}
           DB_NAME: ${{ secrets.DB_NAME }}
           DB_USER: ${{ secrets.DB_USER }}
+        run: |
+          set -e
+          # Resolve values with defaults
+          RESOLVED_VPS_HOST="${VPS_HOST:-${DEFAULT_VPS_HOST}}"
+          RESOLVED_VPS_PORT="${VPS_PORT:-${DEFAULT_VPS_PORT}}"
+          RESOLVED_VPS_USER="${VPS_USER:-${DEFAULT_VPS_USER}}"
+          RESOLVED_VPS_PATH="${VPS_PATH:-${DEFAULT_VPS_PATH}}"
+          RESOLVED_DOMAIN="${DOMAIN:-${DEFAULT_DOMAIN}}"
+          RESOLVED_DB_NAME="${DB_NAME:-${DEFAULT_DB_NAME}}"
+          RESOLVED_DB_USER="${DB_USER:-${DEFAULT_DB_USER}}"
+
+          echo "RESOLVED_VPS_HOST=${RESOLVED_VPS_HOST}" >> $GITHUB_ENV
+          echo "RESOLVED_VPS_PORT=${RESOLVED_VPS_PORT}" >> $GITHUB_ENV
+          echo "RESOLVED_VPS_USER=${RESOLVED_VPS_USER}" >> $GITHUB_ENV
+          echo "RESOLVED_VPS_PATH=${RESOLVED_VPS_PATH}" >> $GITHUB_ENV
+          echo "RESOLVED_DOMAIN=${RESOLVED_DOMAIN}" >> $GITHUB_ENV
+          echo "RESOLVED_DB_NAME=${RESOLVED_DB_NAME}" >> $GITHUB_ENV
+          echo "RESOLVED_DB_USER=${RESOLVED_DB_USER}" >> $GITHUB_ENV
+
+          mkdir -p ~/.ssh
+          if [ -n "${SSH_PRIVATE_KEY}" ]; then
+            echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+            chmod 600 ~/.ssh/id_ed25519
+            SSH_CMD_BASE="ssh -i ~/.ssh/id_ed25519 -p ${RESOLVED_VPS_PORT}"
+            SCP_CMD_BASE="scp -P ${RESOLVED_VPS_PORT} -i ~/.ssh/id_ed25519"
+            RSYNC_SSH="ssh -i ~/.ssh/id_ed25519 -p ${RESOLVED_VPS_PORT}"
+            # known_hosts for key-based
+            ssh-keyscan -p "${RESOLVED_VPS_PORT}" -H "${RESOLVED_VPS_HOST}" >> ~/.ssh/known_hosts || true
+          elif [ -n "${VPS_PASSWORD}" ]; then
+            sudo apt-get update -y && sudo apt-get install -y sshpass
+            SSH_CMD_BASE="sshpass -p '${VPS_PASSWORD}' ssh -o StrictHostKeyChecking=no -p ${RESOLVED_VPS_PORT}"
+            SCP_CMD_BASE="sshpass -p '${VPS_PASSWORD}' scp -o StrictHostKeyChecking=no -P ${RESOLVED_VPS_PORT}"
+            RSYNC_SSH="ssh -o StrictHostKeyChecking=no -p ${RESOLVED_VPS_PORT}"
+          else
+            echo "No SSH key or password provided. Set SSH_PRIVATE_KEY or VPS_PASSWORD in repository secrets." >&2
+            exit 1
+          fi
+
+          echo "SSH_CMD_BASE=${SSH_CMD_BASE}" >> $GITHUB_ENV
+          echo "SCP_CMD_BASE=${SCP_CMD_BASE}" >> $GITHUB_ENV
+          echo "RSYNC_SSH=${RSYNC_SSH}" >> $GITHUB_ENV
+
+      - name: Optional - Upload and run server setup (first-time)
+        if: github.event_name == 'workflow_dispatch' && inputs.run_setup == 'true'
+        env:
           DB_PASS: ${{ secrets.DB_PASS }}
         run: |
-          scp -P "${VPS_PORT:-22}" -i ~/.ssh/id_ed25519 deploy/server_setup.sh "$VPS_USER@$VPS_HOST:/opt/deploy/server_setup.sh"
-          ssh -p "${VPS_PORT:-22}" -i ~/.ssh/id_ed25519 "$VPS_USER@$VPS_HOST" "\
-            export DOMAIN='${DOMAIN}'; \
-            export DOCROOT='${VPS_PATH}'; \
+          set -e
+          if [ -z "${DB_PASS}" ]; then
+            echo "DB_PASS secret is required for initial setup. Add DB_PASS in repo secrets." >&2
+            exit 1
+          fi
+          ${SSH_CMD_BASE} "${RESOLVED_VPS_USER}@${RESOLVED_VPS_HOST}" "mkdir -p /opt/deploy"
+          ${SCP_CMD_BASE} deploy/server_setup.sh "${RESOLVED_VPS_USER}@${RESOLVED_VPS_HOST}:/opt/deploy/server_setup.sh"
+          ${SSH_CMD_BASE} "${RESOLVED_VPS_USER}@${RESOLVED_VPS_HOST}" "\
+            export DOMAIN='${RESOLVED_DOMAIN}'; \
+            export DOCROOT='${RESOLVED_VPS_PATH}'; \
             export DB_HOST='localhost'; \
-            export DB_NAME='${DB_NAME}'; \
-            export DB_USER='${DB_USER}'; \
+            export DB_NAME='${RESOLVED_DB_NAME}'; \
+            export DB_USER='${RESOLVED_DB_USER}'; \
             export DB_PASS='${DB_PASS}'; \
-            export APP_URL='https://${DOMAIN}'; \
+            export APP_URL='https://${RESOLVED_DOMAIN}'; \
             bash /opt/deploy/server_setup.sh"
 
       - name: Rsync project to VPS
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-          VPS_PATH: ${{ secrets.VPS_PATH }}
         run: |
-          rsync -az --delete \
-            --exclude-from '.deployignore' \
-            -e "ssh -i ~/.ssh/id_ed25519 -p ${VPS_PORT:-22}" \
-            ./ "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/"
+          set -e
+          if [ -n "${VPS_PASSWORD}" ] && [ ! -f ~/.ssh/id_ed25519 ]; then
+            # password mode
+            sshpass -p "${VPS_PASSWORD}" rsync -az --delete \
+              --exclude-from '.deployignore' \
+              -e "${RSYNC_SSH}" \
+              ./ "${RESOLVED_VPS_USER}@${RESOLVED_VPS_HOST}:${RESOLVED_VPS_PATH}/"
+          else
+            # key mode
+            rsync -az --delete \
+              --exclude-from '.deployignore' \
+              -e "${RSYNC_SSH}" \
+              ./ "${RESOLVED_VPS_USER}@${RESOLVED_VPS_HOST}:${RESOLVED_VPS_PATH}/"
+          fi
 
       - name: Remote post-deploy steps
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-          VPS_PATH: ${{ secrets.VPS_PATH }}
         run: |
-          ssh -p "${VPS_PORT:-22}" -i ~/.ssh/id_ed25519 "$VPS_USER@$VPS_HOST" << 'EOF'
           set -e
-          cd "$VPS_PATH"
+          ${SSH_CMD_BASE} "${RESOLVED_VPS_USER}@${RESOLVED_VPS_HOST}" << 'EOF'
+          set -e
+          cd "$RESOLVED_VPS_PATH"
           if command -v composer >/dev/null 2>&1; then
             composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader || true
           fi
           mkdir -p uploads logs storage storage/sessions
           chmod -R 775 uploads logs storage || true
-          if id -u www-data >/dev/null 2>&1; then chown -R www-data:www-data "$PWD"; fi
-          if id -u apache >/dev/null 2>&1; then chown -R apache:apache "$PWD"; fi
+          if id -u www-data >/dev/null 2>&1; then chown -R www-data:www-data "$PWD" || true; fi
+          if id -u apache >/dev/null 2>&1; then chown -R apache:apache "$PWD" || true; fi
           if command -v systemctl >/dev/null 2>&1; then
             systemctl reload apache2 2>/dev/null || systemctl reload httpd 2>/dev/null || true
             systemctl reload php-fpm 2>/dev/null || true
