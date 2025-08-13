@@ -7,8 +7,7 @@ if (!function_exists('require_env_keys')) {
         $missing = [];
         foreach ($keys as $k) {
             $v = env($k, null);
-            // Allow empty DB_PASS for local development
-            if ($v === null || ($v === '' && $k !== 'DB_PASS')) {
+            if ($v === null || $v === '') {
                 $missing[] = $k;
             }
         }
@@ -16,7 +15,7 @@ if (!function_exists('require_env_keys')) {
             http_response_code(500);
             header('Content-Type: text/plain; charset=utf-8');
             echo "Configuration error: missing required environment variables: " . implode(', ', $missing) . "\n";
-            echo "Please create and populate .env (based on .env.example) before deploying.";
+            echo "Please create and populate .env before deploying.";
             exit;
         }
     }
