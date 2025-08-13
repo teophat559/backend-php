@@ -227,13 +227,6 @@ function dispatch_route(string $path): void {
                 return;
             }
             break;
-        case 'upload':
-            // Dev-only upload page parity with React dev route
-            if ((getenv('APP_ENV') ?: (defined('APP_ENV') ? APP_ENV : 'prod')) !== 'prod' && file_exists(__DIR__ . '/pages/public/upload.php')) {
-                include __DIR__ . '/pages/public/upload.php';
-                return;
-            }
-            break;
         case 'about':
             if (file_exists(__DIR__ . '/pages/public/about.php')) { include __DIR__ . '/pages/public/about.php'; return; }
             break;
