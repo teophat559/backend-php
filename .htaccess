@@ -4,6 +4,9 @@
   # Set the base path automatically
   RewriteBase /
 
+    # Backward compatibility: strip legacy /php-version prefix so old URLs still work
+    RewriteRule ^php-version/(.*)$ $1 [L]
+
   # Skip existing files/directories
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
@@ -11,9 +14,12 @@
 
   # Route all other requests to index.php
   RewriteRule ^ index.php [L]
-</IfModule>
+ </IfModule>
 
 RewriteEngine On
+
+# Backward compatibility: strip legacy /php-version prefix (global)
+RewriteRule ^php-version/(.*)$ $1 [L]
 
 # Handle Authorization Header
 RewriteCond %{HTTP:Authorization} .

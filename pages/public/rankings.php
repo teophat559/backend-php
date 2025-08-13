@@ -91,9 +91,9 @@ $top_contestants = getTopContestants(25);
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-300">
-                                            <?php echo htmlspecialchars($contestant['contest_name']); ?>
-                                        </div>
+                                                          <img class="h-10 w-10 rounded-full object-cover"
+                                                              src="<?php echo $contestant['image_url']; ?>"
+                                                              alt="<?php echo htmlspecialchars($contestant['name']); ?>">
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center">
@@ -272,7 +272,8 @@ function voteForContestant(contestantId) {
     .then(data => {
         if (data.success) {
             alert('Bình chọn thành công!');
-            location.reload();
+            // Update rankings without full reload
+            try { refreshRankings(); } catch(e) {}
         } else {
             alert(data.message || 'Có lỗi xảy ra khi bình chọn.');
         }
@@ -294,13 +295,71 @@ document.getElementById('loginModal').addEventListener('click', function(e) {
     }
 });
 
-// Auto-refresh rankings every 30 seconds
+// Auto-refresh rankings every 30 seconds without full reload
 setInterval(function() {
-    // Only refresh if user is not interacting with the page
     if (!document.hidden) {
-        location.reload();
+        try { refreshRankings(); } catch(e) {}
     }
 }, 30000);
+
+function refreshRankings(){
+    fetch('<?php echo APP_URL; ?>/api/rankings')
+        .then(r => r.json())
+        .then(data => {
+            if (!data || !data.success) return;
+            var tbody = document.querySelector('tbody');
+            if (!tbody) return;
+            var rows = data.data || [];
+            // Build new rows HTML
+            var html = '';
+            rows.slice(0,25).forEach(function(ct, idx){
+                var rankBadge;
+                if (idx < 3) {
+                    var cls = idx === 0 ? 'bg-yellow-400 text-black' : (idx === 1 ? 'bg-gray-300 text-black' : 'bg-yellow-600 text-white');
+                    rankBadge = '<div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold '+cls+'">'+(idx+1)+'</div>';
+                } else {
+                    rankBadge = '<div class="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-sm font-bold text-white">'+(idx+1)+'</div>';
+                }
+                html += '<tr class="hover:bg-gray-700 transition-colors">'
+                    + '<td class="px-6 py-4 whitespace-nowrap"><div class="flex items-center">'+rankBadge+'</div></td>'
+                    + '<td class="px-6 py-4 whitespace-nowrap">'
+                    + '  <div class="flex items-center">'
+                    + '    <div class="flex-shrink-0 h-10 w-10">'
+                    + '      <img class="h-10 w-10 rounded-full object-cover" src="'+(ct.image_url || '')+'" alt="'+(ct.contestant_name || '')+'">'
+                    + '    </div>'
+                    + '    <div class="ml-4">'
+                    + '      <div class="text-sm font-medium text-white">'+(ct.contestant_name || '')+'</div>'
+                    + '    </div>'
+                    + '  </div>'
+                    + '</td>'
+                    + '<td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-300">'+(ct.contest_name || '')+'</div></td>'
+                    + '<td class="px-6 py-4 whitespace-nowrap"><div class="flex items-center"><i class="fas fa-star text-yellow-400 mr-2"></i><span class="text-sm font-semibold text-white">'+(ct.votes ?? 0)+'</span></div></td>'
+                    + '<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">'
+                    + '  <a href="<?php echo APP_URL; ?>/contest?id='+(ct.contest_id || '')+'" class="text-primary-400 hover:text-primary-300 mr-3"><i class="fas fa-eye mr-1"></i> Xem</a>'
+                    + '</td>'
+                    + '</tr>';
+            });
+            tbody.innerHTML = html;
+        })
+        .catch(()=>{});
+}
+
+// Realtime updates via WebSocket
+(function(){
+    try {
+        var url = window.__makeWsUrl ? window.__makeWsUrl('/ws') : null;
+        if (!url) return;
+        var ws = new WebSocket(url);
+        ws.onmessage = function(ev){
+            try {
+                var msg = JSON.parse(ev.data);
+                if (msg && msg.type === 'vote:created') {
+                    refreshRankings();
+                }
+            } catch(e) {}
+        };
+    } catch(e) { /* ignore */ }
+})();
 </script>
 
 <?php include '../../includes/footer.php'; ?>

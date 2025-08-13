@@ -14,6 +14,9 @@ define('APP_NAME', env('APP_NAME', 'Special Program 2025'));
 define('APP_VERSION', '1.0.0');
 define('APP_URL', rtrim(env('APP_URL', 'http://localhost'), '/'));
 define('ADMIN_URL', APP_URL . '/admin');
+// Realtime config (optional)
+if (!defined('WS_HOST')) { define('WS_HOST', env('WS_HOST', '')); }
+if (!defined('WS_PORT')) { define('WS_PORT', env('WS_PORT', '')); }
 
 // Security settings
 define('SESSION_TIMEOUT', (int) env('SESSION_TIMEOUT', 3600)); // 1 hour

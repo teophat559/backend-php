@@ -58,4 +58,14 @@ $possiblePaths = [
 foreach ($possiblePaths as $envPath) {
     loadDotEnv($envPath);
 }
+
+// Load environment-specific overlays, if present
+$appEnv = env('APP_ENV', 'dev');
+$overlayPaths = [
+    dirname(__DIR__) . '/.env.' . $appEnv,
+    dirname(__DIR__) . '/.env.local',
+];
+foreach ($overlayPaths as $envPath) {
+    loadDotEnv($envPath);
+}
 ?>

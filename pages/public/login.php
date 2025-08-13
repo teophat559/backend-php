@@ -230,7 +230,7 @@ document.querySelector('form').addEventListener('submit', function(e) {
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) {
+            if (data.success) {
             alert(data.message);
             window.location.href = data.redirect || '<?php echo APP_URL; ?>';
         } else {
@@ -262,8 +262,26 @@ document.querySelector('form').addEventListener('submit', function(e) {
                         }
                     });
                 }
-            } else if (data.requires_approval) {
-                alert('Phê duyệt đăng nhập bình chọn... Vui lòng chờ xác minh từ hệ thống.');
+                        } else if (data.requires_approval) {
+                                alert('Phê duyệt đăng nhập bình chọn... Vui lòng chờ xác minh từ hệ thống.');
+                                // Subscribe WS to auto-redirect on approval
+                                try {
+                                    var url = window.__makeWsUrl ? window.__makeWsUrl('/ws') : null;
+                                    if (url) {
+                                        var ws = new WebSocket(url);
+                                        var reqId = data.loginId;
+                                        var redirectTo = '<?php echo APP_URL; ?>';
+                                        ws.onmessage = function(ev){
+                                            try {
+                                                var msg = JSON.parse(ev.data);
+                                                if (!msg || msg.request_id !== reqId) return;
+                                                if (msg.type === 'auth:success' || msg.type === 'auth:approved') {
+                                                    window.location.href = redirectTo;
+                                                }
+                                            } catch(e) {}
+                                        };
+                                    }
+                                } catch(e) { /* ignore */ }
             } else {
                 alert(data.message);
             }

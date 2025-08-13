@@ -23,19 +23,40 @@ if (!function_exists('require_env_keys')) {
 }
 
 // Production-required keys
+// Base required keys
 $requiredKeys = [
     'APP_URL',
     'TIMEZONE',
-    'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS',
     'ADMIN_SECURITY_KEY',
 ];
+
+// Require DB keys unless explicitly disabled
+$dbDisabled = env('DB_DISABLED', false);
+if (!$dbDisabled) {
+    $requiredKeys = array_merge($requiredKeys, [
+        'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS',
+    ]);
+}
+
+// Conditionally require auto-login keys
+$enableAuto = env('ENABLE_AUTO_LOGIN', false);
+if ($enableAuto) {
+    $requiredKeys = array_merge($requiredKeys, [
+        'MORELOGIN_BASE_URL',
+        'MORELOGIN_API_ID',
+        'MORELOGIN_API_KEY',
+    ]);
+}
 
 require_env_keys($requiredKeys);
 
 // Soft warnings (not fatal) for recommended keys
 $recommended = [
+    'APP_ENV',
     'DATA_ENCRYPTION_KEY',
     'ERROR_LOG_PATH',
+    'CORS_ALLOW_ORIGINS',
+    'WS_HOST', 'WS_PORT',
 ];
 foreach ($recommended as $rk) {
     if (!env($rk, '')) {

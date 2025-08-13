@@ -6,6 +6,13 @@
     <title><?php echo isset($page_title) ? $page_title . ' - ' . APP_NAME : APP_NAME; ?></title>
     <meta name="csrf-token" content="<?php echo $_SESSION['csrf_token'] ?? ''; ?>" />
     <meta name="description" content="<?php echo getSetting('site_description', 'Hệ thống bình chọn trực tuyến'); ?>">
+        <?php
+            // Expose WS config
+            $WS_HOST = env('WS_PUBLIC_HOST', env('WS_HOST', ''));
+            $WS_PORT = env('WS_PORT', '');
+        ?>
+        <meta name="ws-host" content="<?php echo htmlspecialchars($WS_HOST, ENT_QUOTES); ?>" />
+        <meta name="ws-port" content="<?php echo htmlspecialchars($WS_PORT, ENT_QUOTES); ?>" />
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -64,6 +71,29 @@
     </style>
 </head>
 <body class="bg-gray-900 text-white min-h-screen">
+        <script>
+            // Provide WS globals for client code
+                    (function(){
+                var metaHost = document.querySelector('meta[name="ws-host"]');
+                var metaPort = document.querySelector('meta[name="ws-port"]');
+                window.__WS_HOST__ = (metaHost && metaHost.content) ? metaHost.content : '';
+                        window.__WS_PORT__ = (metaPort && metaPort.content) ? metaPort.content : '';
+                window.__makeWsUrl = function(path){
+                    var host = window.__WS_HOST__ && window.__WS_HOST__ !== '' ? window.__WS_HOST__ : location.hostname;
+                            var port = '';
+                            if (window.__WS_PORT__ && window.__WS_PORT__ !== '') {
+                                port = ':' + window.__WS_PORT__;
+                            } else if (location.port) {
+                                port = ':' + location.port;
+                            } else {
+                                // development default
+                                port = ':8090';
+                            }
+                    var proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+                    return proto + host + port + path;
+                };
+            })();
+        </script>
     <!-- Navigation -->
     <nav class="bg-gray-800 border-b border-gray-700">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -114,7 +114,7 @@ $recent_votes = $stmt->fetchAll();
     <?php else: ?>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <?php foreach ($contestants as $index => $contestant): ?>
-                <div class="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+                <div class="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow" data-contestant-id="<?php echo (int)$contestant['id']; ?>">
                     <div class="relative">
                         <img src="<?php echo imageUrl($contestant['image_url'], 'contestant'); ?>"
                              alt="<?php echo htmlspecialchars($contestant['name']); ?>"
@@ -142,7 +142,7 @@ $recent_votes = $stmt->fetchAll();
                         <div class="flex items-center justify-between">
                             <div class="flex items-center">
                                 <i class="fas fa-star text-yellow-400 mr-2"></i>
-                                <span class="text-gray-700 font-semibold">
+                                <span class="text-gray-700 font-semibold" data-votes>
                                     <?php echo formatNumber($contestant['total_votes']); ?> lượt bình chọn
                                 </span>
                             </div>
@@ -278,7 +278,8 @@ function voteForContestant(contestantId) {
     .then(data => {
         if (data.success) {
             alert('Bình chọn thành công!');
-            location.reload();
+            // Update contestants in-place without full reload
+            try { refreshContestants(); } catch(e) {}
         } else {
             alert(data.message || 'Có lỗi xảy ra khi bình chọn.');
         }
@@ -301,13 +302,52 @@ document.getElementById('loginModal').addEventListener('click', function(e) {
     }
 });
 
-// Auto-refresh every 30 seconds
+// Auto-refresh contestants every 30 seconds without full reload
 setInterval(function() {
-    if (!document.getElementById('loginModal').classList.contains('hidden')) {
-        return; // Don't refresh if modal is open
+    if (document.getElementById('loginModal').classList.contains('hidden')) {
+        try { refreshContestants(); } catch(e) {}
     }
-    // You can implement auto-refresh here if needed
 }, 30000);
+
+function refreshContestants(){
+    var contestId = <?php echo json_encode($contest_id); ?>;
+    fetch('<?php echo APP_URL; ?>/api/contest/'+contestId+'/contestants')
+        .then(r=>r.json())
+        .then(data=>{
+            if (!data || !data.success) return;
+            var rows = data.data || [];
+            // Map id->votes
+            var map = {};
+            rows.forEach(function(x){ map[x.id] = x.votes; });
+            // Update vote counts in cards
+            document.querySelectorAll('[data-contestant-id]').forEach(function(card){
+                var id = Number(card.getAttribute('data-contestant-id'));
+                if (map[id] != null) {
+                    var span = card.querySelector('[data-votes]');
+                    if (span) span.textContent = map[id] + ' lượt bình chọn';
+                }
+            });
+        })
+        .catch(()=>{});
+}
+
+// WebSocket live updates for votes in this contest
+(function(){
+    try {
+        var url = window.__makeWsUrl ? window.__makeWsUrl('/ws') : null;
+        if (!url) return;
+        var ws = new WebSocket(url);
+        var contestId = <?php echo json_encode($contest_id); ?>;
+        ws.onmessage = function(ev){
+            try {
+                var msg = JSON.parse(ev.data);
+                if (msg && msg.type === 'vote:created' && Number(msg.contest_id) === Number(contestId)) {
+                    refreshContestants();
+                }
+            } catch(e) {}
+        };
+    } catch(e) { /* ignore */ }
+})();
 </script>
 
 <?php include '../../includes/footer.php'; ?>

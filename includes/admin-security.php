@@ -7,7 +7,7 @@
 
 require_once __DIR__ . '/../config/env.php';
 // Admin security key (đọc từ .env nếu có)
-define('ADMIN_SECURITY_KEY', env('ADMIN_SECURITY_KEY', 'SP2025_ADMIN_SECURE_KEY_2025'));
+define('ADMIN_SECURITY_KEY', env('ADMIN_SECURITY_KEY', 'dev-admin-key'));
 
 // Session key for admin verification
 define('ADMIN_KEY_SESSION', 'admin_key_verified');

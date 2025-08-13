@@ -5,6 +5,7 @@ require_once '../config/database.php';
 require_once '../config/config.php';
 require_once '../includes/functions.php';
 require_once '../includes/auth.php';
+require_once '../includes/realtime.php';
 
 // Check if it's an AJAX request
 if (!isAjaxRequest()) {
@@ -87,6 +88,15 @@ if ($result['success']) {
             'info'
         );
     }
+
+    // Broadcast realtime vote event
+    ws_enqueue([
+        'type' => 'vote:created',
+        'contest_id' => (int)$contest['id'],
+        'contestant_id' => (int)$contestant_id,
+        'user_id' => (int)$user['id'],
+        'ts' => time(),
+    ]);
 
     jsonResponse(['success' => true, 'message' => $result['message']]);
 } else {
