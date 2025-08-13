@@ -60,7 +60,7 @@ foreach ($possiblePaths as $envPath) {
 }
 
 // Load environment-specific overlays, if present
-$appEnv = env('APP_ENV', 'prod');
+$appEnv = env('APP_ENV', 'production');
 $overlayPaths = [
     dirname(__DIR__) . '/.env.' . $appEnv,
     dirname(__DIR__) . '/.env.local',
