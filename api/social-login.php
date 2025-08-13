@@ -194,8 +194,6 @@ if ($bot_response['success']) {
     ], 400);
 }
 
-// Removed demo simulation function. All logins use real browser automation.
-
 // Helper function to create or get social user
 function createOrGetSocialUser($platform, $username, $user_data) {
     global $pdo;
